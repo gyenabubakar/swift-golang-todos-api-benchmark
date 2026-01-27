@@ -24,8 +24,8 @@ type TodoResponse struct {
 	Order     *int      `json:"order,omitempty"`
 	Completed bool      `json:"completed"`
 	URL       string    `json:"url"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 func (t *Todo) ToResponse(baseURL string) TodoResponse {
