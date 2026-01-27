@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"todos-api/internal/uuid"
 )
 
 type Todo struct {
-	ID        uuid.UUID  `json:"id"`
-	UserID    uuid.UUID  `json:"user_id"`
-	Title     string     `json:"title"`
-	Order     *int       `json:"order,omitempty"`
-	Completed bool       `json:"completed"`
-	URL       *string    `json:"url,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Title     string    `json:"title"`
+	Order     *int      `json:"order,omitempty"`
+	Completed bool      `json:"completed"`
+	URL       *string   `json:"url,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type TodoResponse struct {

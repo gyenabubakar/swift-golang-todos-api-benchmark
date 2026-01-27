@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"todos-api/internal/uuid"
+
 	"github.com/redis/go-redis/v9"
 )
 

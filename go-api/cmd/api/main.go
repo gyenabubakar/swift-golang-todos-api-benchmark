@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -18,7 +19,7 @@ import (
 	"todos-api/internal/repository"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for database/sql
 	"github.com/redis/go-redis/v9"
 )
 
@@ -116,36 +117,32 @@ func main() {
 	log.Println("Server exited")
 }
 
-func connectDB(cfg *config.Config) (*pgxpool.Pool, error) {
+func connectDB(cfg *config.Config) (*sql.DB, error) {
 	connStr := fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		cfg.DBUsername, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName,
 	)
 
-	poolConfig, err := pgxpool.ParseConfig(connStr)
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, err
 	}
 
-	poolConfig.MaxConns = 25
-	poolConfig.MinConns = 5
-	poolConfig.MaxConnLifetime = time.Hour
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	// Test connection
-	if err := pool.Ping(ctx); err != nil {
+	if err := db.PingContext(ctx); err != nil {
 		return nil, err
 	}
 
 	log.Println("Connected to PostgreSQL")
-	return pool, nil
+	return db, nil
 }
 
 func connectRedis(cfg *config.Config) *redis.Client {

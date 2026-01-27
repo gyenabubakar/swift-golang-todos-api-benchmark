@@ -9,9 +9,9 @@ import (
 	"todos-api/internal/middleware"
 	"todos-api/internal/models"
 	"todos-api/internal/repository"
+	"todos-api/internal/uuid"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
