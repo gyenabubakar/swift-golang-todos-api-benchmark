@@ -1,4 +1,5 @@
 import Foundation
+import Hummingbird
 
 struct Todo: Sendable, Codable {
     let id: UUID
@@ -31,7 +32,7 @@ struct Todo: Sendable, Codable {
     }
 }
 
-struct TodoResponse: Sendable, Codable {
+struct TodoResponse: ResponseEncodable, Sendable {
     let id: UUID
     let title: String
     let order: Int?

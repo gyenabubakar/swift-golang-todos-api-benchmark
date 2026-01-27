@@ -1,4 +1,3 @@
-import Crypto
 import Foundation
 import Hummingbird
 import JWTKit
@@ -8,8 +7,7 @@ struct JWTService: Sendable {
 
     init(secret: String) {
         self.keys = JWTKeyCollection()
-        let key = SymmetricKey(data: Data(secret.utf8))
-        self.keys.add(hmac: key, digestAlgorithm: .sha256)
+        self.keys.add(hmac: .init(from: secret), digestAlgorithm: .sha256)
     }
 
     func generateToken(for user: User) async throws -> String {
