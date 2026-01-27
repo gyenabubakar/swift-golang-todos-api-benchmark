@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"todos-api/internal/uuid"
+	"github.com/google/uuid"
 )
 
 type User struct {

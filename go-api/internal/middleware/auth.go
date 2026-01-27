@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"todos-api/internal/auth"
-	"todos-api/internal/uuid"
+	"github.com/google/uuid"
 
 	"github.com/gin-gonic/gin"
 )

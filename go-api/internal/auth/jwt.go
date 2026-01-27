@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"todos-api/internal/uuid"
+	"github.com/google/uuid"
 
 	"github.com/golang-jwt/jwt/v5"
 )

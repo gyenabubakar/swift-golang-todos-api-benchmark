@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"todos-api/internal/models"
-	"todos-api/internal/uuid"
+	"github.com/google/uuid"
 )
 
 var ErrUserNotFound = errors.New("user not found")

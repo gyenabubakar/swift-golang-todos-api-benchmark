@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"todos-api/internal/uuid"
+	"github.com/google/uuid"
 )
 
 type Todo struct {
