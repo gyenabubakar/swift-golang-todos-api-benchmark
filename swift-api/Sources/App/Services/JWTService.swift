@@ -2,12 +2,12 @@ import Foundation
 import Hummingbird
 import JWTKit
 
-struct JWTService: Sendable {
+actor JWTService {
     private let keys: JWTKeyCollection
 
-    init(secret: String) {
+    init(secret: String) async {
         self.keys = JWTKeyCollection()
-        self.keys.add(hmac: .init(from: secret), digestAlgorithm: .sha256)
+        await self.keys.add(hmac: .init(from: secret), digestAlgorithm: .sha256)
     }
 
     func generateToken(for user: User) async throws -> String {

@@ -32,7 +32,7 @@ struct Todo: Sendable, Codable {
     }
 }
 
-struct TodoResponse: ResponseEncodable, Sendable {
+struct TodoResponse: Codable, ResponseEncodable, Sendable {
     let id: UUID
     let title: String
     let order: Int?

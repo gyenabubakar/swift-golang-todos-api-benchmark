@@ -48,7 +48,7 @@ func buildApplication(
     )
 
     // Initialize services
-    let jwtService = JWTService(secret: jwtSecret)
+    let jwtService = await JWTService(secret: jwtSecret)
     let userRepository = UserPostgresRepository(client: postgresClient)
     let todoRepository = TodoPostgresRepository(client: postgresClient)
     let cacheService = RedisCacheService(redis: redisService)
