@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import PostgresNIO
 
 protocol UserRepository: Sendable {
@@ -9,6 +10,7 @@ protocol UserRepository: Sendable {
 
 struct UserPostgresRepository: UserRepository {
     let client: PostgresClient
+    private let logger = Logger(label: "UserRepository")
 
     func create(_ user: User) async throws -> User {
         try await client.query(
@@ -16,7 +18,7 @@ struct UserPostgresRepository: UserRepository {
             INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
             VALUES (\(user.id), \(user.email), \(user.passwordHash), \(user.name), \(user.createdAt), \(user.updatedAt))
             """,
-            logger: .init(label: "UserRepository")
+            logger: logger
         )
         return user
     }
@@ -28,17 +30,13 @@ struct UserPostgresRepository: UserRepository {
             FROM users
             WHERE email = \(email)
             """,
-            logger: .init(label: "UserRepository")
+            logger: logger
         )
 
-        for try await row in rows {
-            let id = try row.decode(UUID.self, context: .default)
-            let email = try row.decode(String.self, context: .default)
-            let passwordHash = try row.decode(String.self, context: .default)
-            let name = try row.decode(String.self, context: .default)
-            let createdAt = try row.decode(Date.self, context: .default)
-            let updatedAt = try row.decode(Date.self, context: .default)
-
+        for try await (id, email, passwordHash, name, createdAt, updatedAt) in rows.decode(
+            (UUID, String, String, String, Date, Date).self,
+            context: .default
+        ) {
             return User(
                 id: id,
                 email: email,
@@ -58,17 +56,13 @@ struct UserPostgresRepository: UserRepository {
             FROM users
             WHERE id = \(id)
             """,
-            logger: .init(label: "UserRepository")
+            logger: logger
         )
 
-        for try await row in rows {
-            let id = try row.decode(UUID.self, context: .default)
-            let email = try row.decode(String.self, context: .default)
-            let passwordHash = try row.decode(String.self, context: .default)
-            let name = try row.decode(String.self, context: .default)
-            let createdAt = try row.decode(Date.self, context: .default)
-            let updatedAt = try row.decode(Date.self, context: .default)
-
+        for try await (id, email, passwordHash, name, createdAt, updatedAt) in rows.decode(
+            (UUID, String, String, String, Date, Date).self,
+            context: .default
+        ) {
             return User(
                 id: id,
                 email: email,

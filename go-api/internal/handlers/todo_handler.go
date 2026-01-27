@@ -9,10 +9,10 @@ import (
 	"todos-api/internal/middleware"
 	"todos-api/internal/models"
 	"todos-api/internal/repository"
+
 	"github.com/google/uuid"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
 const cacheTTL = 5 * time.Minute
@@ -140,29 +140,12 @@ func (h *TodoHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Get existing todo
-	todo, err := h.todoRepo.FindByID(c.Request.Context(), id, userID)
+	todo, err := h.todoRepo.UpdateFields(c.Request.Context(), id, userID, &req)
 	if errors.Is(err, repository.ErrTodoNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch todo"})
-		return
-	}
-
-	// Update fields
-	if req.Title != nil {
-		todo.Title = *req.Title
-	}
-	if req.Order != nil {
-		todo.Order = req.Order
-	}
-	if req.Completed != nil {
-		todo.Completed = *req.Completed
-	}
-
-	if err := h.todoRepo.Update(c.Request.Context(), todo); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update todo"})
 		return
 	}
@@ -212,9 +195,4 @@ func (h *TodoHandler) DeleteAll(c *gin.Context) {
 	_ = h.cache.Delete(c.Request.Context(), cache.TodosKey(userID))
 
 	c.Status(http.StatusNoContent)
-}
-
-// Check if error is redis nil error
-func isRedisNil(err error) bool {
-	return errors.Is(err, redis.Nil)
 }

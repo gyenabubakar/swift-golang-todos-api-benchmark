@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"todos-api/internal/models"
+
 	"github.com/google/uuid"
 )
 
@@ -45,7 +48,7 @@ func (r *TodoRepository) FindAll(ctx context.Context, userID uuid.UUID) ([]model
 	}
 	defer rows.Close()
 
-	var todos []models.Todo
+	todos := make([]models.Todo, 0, 16)
 	for rows.Next() {
 		var todo models.Todo
 		err := rows.Scan(&todo.ID, &todo.UserID, &todo.Title, &todo.Order, &todo.Completed, &todo.URL, &todo.CreatedAt, &todo.UpdatedAt)
@@ -53,10 +56,6 @@ func (r *TodoRepository) FindAll(ctx context.Context, userID uuid.UUID) ([]model
 			return nil, err
 		}
 		todos = append(todos, todo)
-	}
-
-	if todos == nil {
-		todos = []models.Todo{}
 	}
 
 	return todos, rows.Err()
@@ -99,6 +98,48 @@ func (r *TodoRepository) Update(ctx context.Context, todo *models.Todo) error {
 		return ErrTodoNotFound
 	}
 	return nil
+}
+
+func (r *TodoRepository) UpdateFields(ctx context.Context, id, userID uuid.UUID, req *models.UpdateTodoRequest) (*models.Todo, error) {
+	setClauses := []string{`updated_at = $1`}
+	args := []interface{}{time.Now()}
+	argIndex := 2
+
+	if req.Title != nil {
+		setClauses = append(setClauses, fmt.Sprintf(`title = $%d`, argIndex))
+		args = append(args, *req.Title)
+		argIndex++
+	}
+	if req.Order != nil {
+		setClauses = append(setClauses, fmt.Sprintf(`"order" = $%d`, argIndex))
+		args = append(args, *req.Order)
+		argIndex++
+	}
+	if req.Completed != nil {
+		setClauses = append(setClauses, fmt.Sprintf(`completed = $%d`, argIndex))
+		args = append(args, *req.Completed)
+		argIndex++
+	}
+
+	args = append(args, id, userID)
+	query := fmt.Sprintf(
+		`UPDATE todos SET %s WHERE id = $%d AND user_id = $%d
+		 RETURNING id, user_id, title, "order", completed, url, created_at, updated_at`,
+		strings.Join(setClauses, ", "), argIndex, argIndex+1,
+	)
+
+	todo := &models.Todo{}
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(
+		&todo.ID, &todo.UserID, &todo.Title, &todo.Order, &todo.Completed,
+		&todo.URL, &todo.CreatedAt, &todo.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrTodoNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return todo, nil
 }
 
 func (r *TodoRepository) Delete(ctx context.Context, id, userID uuid.UUID) error {
