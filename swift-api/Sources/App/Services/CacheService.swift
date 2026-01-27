@@ -19,8 +19,8 @@ struct RedisCacheService: CacheService {
     }
 
     func get<T: Decodable>(_ key: String) async throws -> T? {
-        let result = try await redis.get(RedisKey(key), as: Data.self)
-        guard let data = result.value else {
+        let result = try await redis.get(RedisKey(key), as: Data.self).get()
+        guard let data = result else {
             return nil
         }
         return try decoder.decode(T.self, from: data)
@@ -29,20 +29,20 @@ struct RedisCacheService: CacheService {
     func set<T: Encodable>(_ key: String, value: T, ttl: Int? = 300) async throws {
         let data = try encoder.encode(value)
         if let ttl = ttl {
-            _ = try await redis.setex(RedisKey(key), to: data, expirationInSeconds: ttl)
+            _ = try await redis.setex(RedisKey(key), to: data, expirationInSeconds: ttl).get()
         } else {
-            _ = try await redis.set(RedisKey(key), to: data)
+            _ = try await redis.set(RedisKey(key), to: data).get()
         }
     }
 
     func delete(_ key: String) async throws {
-        _ = try await redis.delete(RedisKey(key))
+        _ = try await redis.delete(RedisKey(key)).get()
     }
 
     func deletePattern(_ pattern: String) async throws {
-        let keys = try await redis.scan(matching: pattern).0
+        let (_, keys) = try await redis.scan(matching: pattern).get()
         for key in keys {
-            _ = try await redis.delete(key)
+            _ = try await redis.delete(RedisKey(key)).get()
         }
     }
 }

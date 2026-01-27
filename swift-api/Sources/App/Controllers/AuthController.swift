@@ -12,7 +12,7 @@ struct AuthController: Sendable {
     }
 
     @Sendable
-    func register(request: Request, context: AppRequestContext) async throws -> Response {
+    func register(request: Request, context: AppRequestContext) async throws -> EditedResponse<AuthResponse> {
         let input = try await request.decode(as: RegisterRequest.self, context: context)
 
         // Check if user already exists
@@ -40,15 +40,11 @@ struct AuthController: Sendable {
             user: UserResponse(from: createdUser)
         )
 
-        return try Response(
-            status: .created,
-            headers: [.contentType: "application/json"],
-            body: .init(data: JSONEncoder().encode(response))
-        )
+        return EditedResponse(status: .created, response: response)
     }
 
     @Sendable
-    func login(request: Request, context: AppRequestContext) async throws -> Response {
+    func login(request: Request, context: AppRequestContext) async throws -> AuthResponse {
         let input = try await request.decode(as: LoginRequest.self, context: context)
 
         // Find user
@@ -57,22 +53,16 @@ struct AuthController: Sendable {
         }
 
         // Verify password
-        guard try await Bcrypt.verify(input.password, hash: user.passwordHash) else {
+        guard Bcrypt.verify(input.password, hash: user.passwordHash) else {
             throw HTTPError(.unauthorized, message: "Invalid credentials")
         }
 
         // Generate token
         let token = try await jwtService.generateToken(for: user)
 
-        let response = AuthResponse(
+        return AuthResponse(
             token: token,
             user: UserResponse(from: user)
-        )
-
-        return try Response(
-            status: .ok,
-            headers: [.contentType: "application/json"],
-            body: .init(data: JSONEncoder().encode(response))
         )
     }
 }

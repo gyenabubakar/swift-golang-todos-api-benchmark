@@ -41,7 +41,7 @@ struct RequireAuthMiddleware: RouterMiddleware {
         context: Context,
         next: (Request, Context) async throws -> Response
     ) async throws -> Response {
-        guard context.auth.get(AuthenticatedUser.self) != nil else {
+        guard context.identity != nil else {
             throw HTTPError(.unauthorized, message: "Authentication required")
         }
         return try await next(request, context)

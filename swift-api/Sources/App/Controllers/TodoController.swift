@@ -19,24 +19,20 @@ struct TodoController: Sendable {
     }
 
     private func getAuthenticatedUser(context: AppRequestContext) throws -> AuthenticatedUser {
-        guard let user = context.auth.get(AuthenticatedUser.self) else {
+        guard let user = context.identity else {
             throw HTTPError(.unauthorized, message: "Authentication required")
         }
         return user
     }
 
     @Sendable
-    func listTodos(request: Request, context: AppRequestContext) async throws -> Response {
+    func listTodos(request: Request, context: AppRequestContext) async throws -> [TodoResponse] {
         let user = try getAuthenticatedUser(context: context)
 
         // Try to get from cache first
         let cacheKey = RedisCacheService.todosKey(userId: user.id)
         if let cached: [TodoResponse] = try? await cache.get(cacheKey) {
-            return try Response(
-                status: .ok,
-                headers: [.contentType: "application/json"],
-                body: .init(data: JSONEncoder().encode(cached))
-            )
+            return cached
         }
 
         // Fetch from database
@@ -46,15 +42,11 @@ struct TodoController: Sendable {
         // Cache the result
         try? await cache.set(cacheKey, value: response, ttl: 300)
 
-        return try Response(
-            status: .ok,
-            headers: [.contentType: "application/json"],
-            body: .init(data: JSONEncoder().encode(response))
-        )
+        return response
     }
 
     @Sendable
-    func createTodo(request: Request, context: AppRequestContext) async throws -> Response {
+    func createTodo(request: Request, context: AppRequestContext) async throws -> EditedResponse<TodoResponse> {
         let user = try getAuthenticatedUser(context: context)
         let input = try await request.decode(as: CreateTodoRequest.self, context: context)
 
@@ -73,15 +65,11 @@ struct TodoController: Sendable {
 
         let response = TodoResponse(from: createdTodo, baseURL: baseURL)
 
-        return try Response(
-            status: .created,
-            headers: [.contentType: "application/json"],
-            body: .init(data: JSONEncoder().encode(response))
-        )
+        return EditedResponse(status: .created, response: response)
     }
 
     @Sendable
-    func getTodo(request: Request, context: AppRequestContext) async throws -> Response {
+    func getTodo(request: Request, context: AppRequestContext) async throws -> TodoResponse {
         let user = try getAuthenticatedUser(context: context)
 
         guard let idString = context.parameters.get("id"),
@@ -92,11 +80,7 @@ struct TodoController: Sendable {
         // Try cache first
         let cacheKey = RedisCacheService.todoKey(id: id)
         if let cached: TodoResponse = try? await cache.get(cacheKey) {
-            return try Response(
-                status: .ok,
-                headers: [.contentType: "application/json"],
-                body: .init(data: JSONEncoder().encode(cached))
-            )
+            return cached
         }
 
         guard let todo = try await repository.findById(id, userId: user.id) else {
@@ -108,15 +92,11 @@ struct TodoController: Sendable {
         // Cache the result
         try? await cache.set(cacheKey, value: response, ttl: 300)
 
-        return try Response(
-            status: .ok,
-            headers: [.contentType: "application/json"],
-            body: .init(data: JSONEncoder().encode(response))
-        )
+        return response
     }
 
     @Sendable
-    func updateTodo(request: Request, context: AppRequestContext) async throws -> Response {
+    func updateTodo(request: Request, context: AppRequestContext) async throws -> TodoResponse {
         let user = try getAuthenticatedUser(context: context)
 
         guard let idString = context.parameters.get("id"),
@@ -147,17 +127,11 @@ struct TodoController: Sendable {
         try? await cache.delete(RedisCacheService.todosKey(userId: user.id))
         try? await cache.delete(RedisCacheService.todoKey(id: id))
 
-        let response = TodoResponse(from: updatedTodo, baseURL: baseURL)
-
-        return try Response(
-            status: .ok,
-            headers: [.contentType: "application/json"],
-            body: .init(data: JSONEncoder().encode(response))
-        )
+        return TodoResponse(from: updatedTodo, baseURL: baseURL)
     }
 
     @Sendable
-    func deleteTodo(request: Request, context: AppRequestContext) async throws -> Response {
+    func deleteTodo(request: Request, context: AppRequestContext) async throws -> HTTPResponse.Status {
         let user = try getAuthenticatedUser(context: context)
 
         guard let idString = context.parameters.get("id"),
@@ -175,11 +149,11 @@ struct TodoController: Sendable {
         try? await cache.delete(RedisCacheService.todosKey(userId: user.id))
         try? await cache.delete(RedisCacheService.todoKey(id: id))
 
-        return Response(status: .noContent)
+        return .noContent
     }
 
     @Sendable
-    func deleteAllTodos(request: Request, context: AppRequestContext) async throws -> Response {
+    func deleteAllTodos(request: Request, context: AppRequestContext) async throws -> HTTPResponse.Status {
         let user = try getAuthenticatedUser(context: context)
 
         _ = try await repository.deleteAll(userId: user.id)
@@ -187,6 +161,6 @@ struct TodoController: Sendable {
         // Invalidate cache
         try? await cache.delete(RedisCacheService.todosKey(userId: user.id))
 
-        return Response(status: .noContent)
+        return .noContent
     }
 }

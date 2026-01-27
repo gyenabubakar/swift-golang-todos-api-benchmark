@@ -99,7 +99,7 @@ struct TodoPostgresRepository: TodoRepository {
     }
 
     func delete(_ id: UUID, userId: UUID) async throws -> Bool {
-        let result = try await client.query(
+        try await client.query(
             """
             DELETE FROM todos
             WHERE id = \(id) AND user_id = \(userId)

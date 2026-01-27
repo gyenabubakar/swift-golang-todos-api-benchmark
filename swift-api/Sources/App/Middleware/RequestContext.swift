@@ -5,12 +5,14 @@ import Logging
 import NIOCore
 
 struct AppRequestContext: AuthRequestContext, RequestContext {
+    typealias Identity = AuthenticatedUser
+
     var coreContext: CoreRequestContextStorage
-    var auth: LoginCache
+    var identity: Identity?
 
     init(source: Source) {
         self.coreContext = .init(source: source)
-        self.auth = .init()
+        self.identity = nil
     }
 
     var requestDecoder: some RequestDecoder {
