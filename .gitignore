@@ -1,11 +1,33 @@
+# macOS
 .DS_Store
+
+# Swift
 /.build
 /.swiftpm
 /.devContainer
 /Packages
 /*.xcodeproj
 xcuserdata/
+swift-api/.build
+swift-api/.swiftpm
+swift-api/Package.resolved
+
+# Go
+go-api/bin/
+go-api/vendor/
+
+# IDEs
 /.vscode/*
 !/.vscode/hummingbird.code-snippets
-fly.toml
+.idea/
+
+# Environment
 .env
+*.env.local
+
+# Fly.io
+fly.toml
+
+# Docker volumes
+postgres_data/
+redis_data/

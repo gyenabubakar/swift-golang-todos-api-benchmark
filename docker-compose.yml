@@ -1,9 +1,90 @@
-name: hummingbird-todos
+version: '3.8'
 
 services:
-  api:
-    build: .
-    env_file:
-      - ./.env
+  postgres:
+    image: postgres:16-alpine
+    container_name: todos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-todos_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-todos_password}
+      POSTGRES_DB: ${DB_NAME:-hummingbird_todos}
     ports:
-      - 8080:8080
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-todos_user} -d ${DB_NAME:-hummingbird_todos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: todos-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --maxmemory 100mb --maxmemory-policy allkeys-lfu
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  swift-api:
+    build:
+      context: ./swift-api
+      dockerfile: Dockerfile
+    container_name: todos-swift-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-todos_user}
+      - DB_PASSWORD=${DB_PASSWORD:-todos_password}
+      - DB_NAME=${DB_NAME:-hummingbird_todos}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - BASE_URL=${BASE_URL:-http://localhost:8080}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  go-api:
+    build:
+      context: ./go-api
+      dockerfile: Dockerfile
+    container_name: todos-go-api
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-todos_user}
+      - DB_PASSWORD=${DB_PASSWORD:-todos_password}
+      - DB_NAME=${DB_NAME:-hummingbird_todos}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - BASE_URL=${BASE_URL:-http://localhost:8081}
+      - PORT=8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

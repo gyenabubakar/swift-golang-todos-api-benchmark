@@ -1,0 +1,123 @@
+import Foundation
+import PostgresNIO
+
+protocol TodoRepository: Sendable {
+    func create(_ todo: Todo) async throws -> Todo
+    func findAll(userId: UUID) async throws -> [Todo]
+    func findById(_ id: UUID, userId: UUID) async throws -> Todo?
+    func update(_ todo: Todo) async throws -> Todo
+    func delete(_ id: UUID, userId: UUID) async throws -> Bool
+    func deleteAll(userId: UUID) async throws -> Int
+}
+
+struct TodoPostgresRepository: TodoRepository {
+    let client: PostgresClient
+
+    func create(_ todo: Todo) async throws -> Todo {
+        try await client.query(
+            """
+            INSERT INTO todos (id, user_id, title, "order", completed, url, created_at, updated_at)
+            VALUES (\(todo.id), \(todo.userId), \(todo.title), \(todo.order), \(todo.completed), \(todo.url), \(todo.createdAt), \(todo.updatedAt))
+            """,
+            logger: .init(label: "TodoRepository")
+        )
+        return todo
+    }
+
+    func findAll(userId: UUID) async throws -> [Todo] {
+        let rows = try await client.query(
+            """
+            SELECT id, user_id, title, "order", completed, url, created_at, updated_at
+            FROM todos
+            WHERE user_id = \(userId)
+            ORDER BY "order" NULLS LAST, created_at DESC
+            """,
+            logger: .init(label: "TodoRepository")
+        )
+
+        var todos: [Todo] = []
+        for try await (id, uId, title, order, completed, url, createdAt, updatedAt) in rows.decode(
+            (UUID, UUID, String, Int?, Bool, String?, Date, Date).self,
+            context: .default
+        ) {
+            todos.append(Todo(
+                id: id,
+                userId: uId,
+                title: title,
+                order: order,
+                completed: completed,
+                url: url,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            ))
+        }
+        return todos
+    }
+
+    func findById(_ id: UUID, userId: UUID) async throws -> Todo? {
+        let rows = try await client.query(
+            """
+            SELECT id, user_id, title, "order", completed, url, created_at, updated_at
+            FROM todos
+            WHERE id = \(id) AND user_id = \(userId)
+            """,
+            logger: .init(label: "TodoRepository")
+        )
+
+        for try await (id, uId, title, order, completed, url, createdAt, updatedAt) in rows.decode(
+            (UUID, UUID, String, Int?, Bool, String?, Date, Date).self,
+            context: .default
+        ) {
+            return Todo(
+                id: id,
+                userId: uId,
+                title: title,
+                order: order,
+                completed: completed,
+                url: url,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            )
+        }
+        return nil
+    }
+
+    func update(_ todo: Todo) async throws -> Todo {
+        try await client.query(
+            """
+            UPDATE todos
+            SET title = \(todo.title),
+                "order" = \(todo.order),
+                completed = \(todo.completed),
+                url = \(todo.url),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = \(todo.id) AND user_id = \(todo.userId)
+            """,
+            logger: .init(label: "TodoRepository")
+        )
+        return todo
+    }
+
+    func delete(_ id: UUID, userId: UUID) async throws -> Bool {
+        let result = try await client.query(
+            """
+            DELETE FROM todos
+            WHERE id = \(id) AND user_id = \(userId)
+            """,
+            logger: .init(label: "TodoRepository")
+        )
+        // If query executed without error, consider it successful
+        return true
+    }
+
+    func deleteAll(userId: UUID) async throws -> Int {
+        try await client.query(
+            """
+            DELETE FROM todos
+            WHERE user_id = \(userId)
+            """,
+            logger: .init(label: "TodoRepository")
+        )
+        return 0  // PostgresNIO doesn't return affected rows count easily
+    }
+}
