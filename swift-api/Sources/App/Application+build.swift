@@ -31,7 +31,7 @@ func buildApplication(
     let baseURL = env.get("BASE_URL") ?? "http://localhost:8080"
 
     // Initialize PostgreSQL client
-    let postgresConfig = PostgresClient.Configuration(
+    var postgresConfig = PostgresClient.Configuration(
         host: dbHost,
         port: dbPort,
         username: dbUsername,
@@ -39,6 +39,7 @@ func buildApplication(
         database: dbName,
         tls: .disable
     )
+    postgresConfig.options.maximumConnections = 25
     let postgresClient = PostgresClient(configuration: postgresConfig)
 
     // Initialize Redis connection pool
