@@ -1,6 +1,7 @@
 import Foundation
 import Hummingbird
 import HummingbirdBcrypt
+import NIOPosix
 
 struct AuthController: Sendable {
     let userRepository: UserRepository
@@ -12,7 +13,9 @@ struct AuthController: Sendable {
     }
 
     @Sendable
-    func register(request: Request, context: AppRequestContext) async throws -> EditedResponse<AuthResponse> {
+    func register(request: Request, context: AppRequestContext) async throws -> EditedResponse<
+        AuthResponse
+    > {
         let input = try await request.decode(as: RegisterRequest.self, context: context)
 
         // Check if user already exists
@@ -20,8 +23,11 @@ struct AuthController: Sendable {
             throw HTTPError(.conflict, message: "Email already registered")
         }
 
-        // Hash password
-        let passwordHash = Bcrypt.hash(input.password)
+        // Hash password on thread pool to avoid blocking async tasks
+        // Use cost 10 to match Go's bcrypt.DefaultCost
+        let passwordHash = try await NIOThreadPool.singleton.runIfActive {
+            Bcrypt.hash(input.password, cost: 10)
+        }
 
         // Create user
         let user = User(
@@ -52,8 +58,11 @@ struct AuthController: Sendable {
             throw HTTPError(.unauthorized, message: "Invalid credentials")
         }
 
-        // Verify password
-        guard Bcrypt.verify(input.password, hash: user.passwordHash) else {
+        // Verify password on thread pool to avoid blocking async tasks
+        let passwordValid = try await NIOThreadPool.singleton.runIfActive {
+            Bcrypt.verify(input.password, hash: user.passwordHash)
+        }
+        guard passwordValid else {
             throw HTTPError(.unauthorized, message: "Invalid credentials")
         }
 

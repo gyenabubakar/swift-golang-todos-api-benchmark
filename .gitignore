@@ -31,3 +31,6 @@ fly.toml
 # Docker volumes
 postgres_data/
 redis_data/
+
+benchmark/results-*
+benchmark/stats.csv

@@ -1,8 +1,8 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: todos-postgres
     restart: unless-stopped
     environment:
@@ -15,7 +15,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-todos_user} -d ${DB_NAME:-hummingbird_todos}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USERNAME:-todos_user} -d ${DB_NAME:-hummingbird_todos}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
