@@ -129,7 +129,7 @@ export default function () {
 
   const todoId = createRes.json("id");
 
-  // 5. Get todo
+  // 5. Get todo (cache miss - first read)
   const getStart = Date.now();
   const getRes = http.get(`${BASE_URL}/todos/${todoId}`, {
     ...authParams(token),
@@ -142,7 +142,28 @@ export default function () {
   });
   if (getOk) todoGet.add(1);
 
-  // 6. Update todo
+  // 6. Get todo again (cache hit)
+  for (let i = 0; i < 2; i++) {
+    const cacheHitStart = Date.now();
+    const cacheHitRes = http.get(`${BASE_URL}/todos/${todoId}`, {
+      ...authParams(token),
+      tags: { name: "GET /todos/:id" },
+    });
+    getLatency.add(Date.now() - cacheHitStart);
+    if (check(cacheHitRes, { "get status 200": (r) => r.status === 200 })) {
+      todoGet.add(1);
+    }
+  }
+
+  // 7. List todos (cache hit after create)
+  const listStart2 = Date.now();
+  const listRes2 = http.get(`${BASE_URL}/todos`, authParams(token));
+  listLatency.add(Date.now() - listStart2);
+  if (check(listRes2, { "list status 200": (r) => r.status === 200 })) {
+    todoList.add(1);
+  }
+
+  // 8. Update todo (invalidates cache)
   const updateStart = Date.now();
   const updateRes = http.patch(
     `${BASE_URL}/todos/${todoId}`,
@@ -156,7 +177,39 @@ export default function () {
   });
   if (updateOk) todoUpdate.add(1);
 
-  // 7. Delete todo
+  // 9. Get todo after update (cache miss)
+  const getAfterUpdateStart = Date.now();
+  const getAfterUpdateRes = http.get(`${BASE_URL}/todos/${todoId}`, {
+    ...authParams(token),
+    tags: { name: "GET /todos/:id" },
+  });
+  getLatency.add(Date.now() - getAfterUpdateStart);
+  if (check(getAfterUpdateRes, { "get status 200": (r) => r.status === 200 })) {
+    todoGet.add(1);
+  }
+
+  // 10. Get todo again (cache hit after update)
+  for (let i = 0; i < 2; i++) {
+    const cacheHitStart = Date.now();
+    const cacheHitRes = http.get(`${BASE_URL}/todos/${todoId}`, {
+      ...authParams(token),
+      tags: { name: "GET /todos/:id" },
+    });
+    getLatency.add(Date.now() - cacheHitStart);
+    if (check(cacheHitRes, { "get status 200": (r) => r.status === 200 })) {
+      todoGet.add(1);
+    }
+  }
+
+  // 11. List todos after update (cache miss)
+  const listStart3 = Date.now();
+  const listRes3 = http.get(`${BASE_URL}/todos`, authParams(token));
+  listLatency.add(Date.now() - listStart3);
+  if (check(listRes3, { "list status 200": (r) => r.status === 200 })) {
+    todoList.add(1);
+  }
+
+  // 12. Delete todo
   const deleteStart = Date.now();
   const deleteRes = http.del(`${BASE_URL}/todos/${todoId}`, null, {
     ...authParams(token),

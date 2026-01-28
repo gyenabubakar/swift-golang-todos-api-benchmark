@@ -10,17 +10,22 @@ Load testing suite for comparing Swift (Hummingbird) and Go API performance usin
 
 ## What It Tests
 
-The benchmark simulates a complete user flow, testing all API endpoints:
+The benchmark simulates a complete user flow with cache behavior testing:
 
 1. **POST /auth/register** - Create new account
 2. **POST /auth/login** - Authenticate
-3. **GET /todos** - List all todos
+3. **GET /todos** - List all todos (empty)
 4. **POST /todos** - Create a todo
-5. **GET /todos/:id** - Get single todo
-6. **PATCH /todos/:id** - Update todo
-7. **DELETE /todos/:id** - Delete todo
+5. **GET /todos/:id** - Get single todo (cache miss)
+6. **GET /todos/:id** x2 - Get todo again (cache hits)
+7. **GET /todos** - List todos (cache hit after create)
+8. **PATCH /todos/:id** - Update todo (invalidates cache)
+9. **GET /todos/:id** - Get todo after update (cache miss)
+10. **GET /todos/:id** x2 - Get todo again (cache hits after update)
+11. **GET /todos** - List todos after update (cache miss)
+12. **DELETE /todos/:id** - Delete todo
 
-Each virtual user (VU) creates a unique account and performs the full CRUD cycle with a 3-second pause between iterations to simulate realistic usage.
+Each virtual user (VU) creates a unique account and performs the full CRUD cycle including cache hit/miss scenarios, with a 3-second pause between iterations to simulate realistic usage.
 
 ## Load Profile
 
@@ -96,3 +101,7 @@ The benchmark generates two files in the `benchmark/` directory:
 - Memory usage
 - Network I/O
 - Block I/O
+
+## Results
+
+- **1000 VUs (~4 minutes):** See [BENCHMARK-RESULTS_1000.md](./BENCHMARK-RESULTS_1000.md)
