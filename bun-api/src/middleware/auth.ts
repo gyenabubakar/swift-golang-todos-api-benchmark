@@ -1,3 +1,4 @@
+import { bearer } from "@elysiajs/bearer";
 import { Elysia } from "elysia";
 
 import { jwtPlugin } from "../lib/jwt";
@@ -17,43 +18,32 @@ interface JWTPayload {
 
 export const authPlugin = new Elysia()
   .use(jwtPlugin)
-  .derive(async ({ headers, jwt, status }) => {
+  .use(bearer())
+  .resolve({ as: "scoped" }, async ({ bearer, headers, jwt, set, status }) => {
+    set.headers["WWW-Authenticate"] = `Bearer realm="todos", error="invalid_token"`;
+
     const authorization = headers.authorization;
 
     if (!authorization) {
-      return {
-        authError: () => status(401, { error: "Authorization header required" }),
-        authUser: null as AuthUser | null
-      };
+      return status(401, { error: "Authorization header required" });
     }
 
-    const [scheme, token] = authorization.split(" ", 2);
-    if (scheme !== "Bearer" || !token) {
-      return {
-        authError: () => status(401, { error: "Invalid authorization header format" }),
-        authUser: null as AuthUser | null
-      };
+    if (!bearer) {
+      return status(401, { error: "Invalid authorization header format" });
     }
 
-    const payload = (await jwt.verify(token)) as JWTPayload | false;
+    const payload = (await jwt.verify(bearer)) as JWTPayload | false;
     if (!payload) {
-      return {
-        authError: () => status(401, { error: "Invalid or expired token" }),
-        authUser: null as AuthUser | null
-      };
+      return status(401, { error: "Invalid or expired token" });
     }
 
     const userId = payload.user_id ?? payload.sub;
     if (!userId || !payload.email) {
-      return {
-        authError: () => status(401, { error: "Invalid or expired token" }),
-        authUser: null as AuthUser | null
-      };
+      return status(401, { error: "Invalid or expired token" });
     }
 
     return {
-      authError: null,
-      authUser: {
+      currentUser: {
         id: userId,
         email: payload.email
       } satisfies AuthUser

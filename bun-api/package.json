@@ -10,6 +10,7 @@
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
+    "@elysiajs/bearer": "^1.4.0",
     "@elysiajs/cors": "^1.4.0",
     "@elysiajs/jwt": "^1.4.0",
     "drizzle-orm": "^0.44.2",

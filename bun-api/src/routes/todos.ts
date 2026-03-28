@@ -8,8 +8,8 @@ import {
   todoCacheKey,
   todosCacheKey
 } from "../lib/cache";
-import { jwtPlugin } from "../lib/jwt";
 import { toTodoResponse } from "../lib/mappers";
+import { authPlugin } from "../middleware/auth";
 import {
   createTodo,
   deleteAllTodosByUserId,
@@ -30,62 +30,16 @@ const updateTodoBody = t.Object({
   completed: t.Optional(t.Boolean())
 });
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const todoIdParams = t.Object({
+  id: t.String({
+    format: "uuid",
+    error: "Invalid todo ID"
+  })
+});
 
 export const todoRoutes = new Elysia({ prefix: "/todos" })
-  .use(jwtPlugin)
-  .derive(async ({ headers, jwt, status }) => {
-    const authorization = headers.authorization;
-    if (!authorization) {
-      return {
-        currentUser: null,
-        authFailure: () => status(401, { error: "Authorization header required" })
-      };
-    }
-
-    const [scheme, token] = authorization.split(" ", 2);
-    if (scheme !== "Bearer" || !token) {
-      return {
-        currentUser: null,
-        authFailure: () => status(401, { error: "Invalid authorization header format" })
-      };
-    }
-
-    const payload = (await jwt.verify(token)) as
-      | {
-          sub?: string;
-          user_id?: string;
-          email?: string;
-        }
-      | false;
-    if (!payload) {
-      return {
-        currentUser: null,
-        authFailure: () => status(401, { error: "Invalid or expired token" })
-      };
-    }
-
-    const userId = payload.user_id ?? payload.sub;
-    if (!userId || !payload.email) {
-      return {
-        currentUser: null,
-        authFailure: () => status(401, { error: "Invalid or expired token" })
-      };
-    }
-
-    return {
-      currentUser: {
-        id: userId,
-        email: payload.email
-      },
-      authFailure: null
-    };
-  })
-  .get("/", async ({ currentUser, authFailure }) => {
-    if (!currentUser) {
-      return authFailure?.();
-    }
-
+  .use(authPlugin)
+  .get("/", async ({ currentUser }) => {
     const cacheKey = todosCacheKey(currentUser.id);
     const cached = await getJson<ReturnType<typeof toTodoResponse>[]>(cacheKey);
     if (cached) {
@@ -100,11 +54,7 @@ export const todoRoutes = new Elysia({ prefix: "/todos" })
   })
   .post(
     "/",
-    async ({ body, currentUser, authFailure, status }) => {
-      if (!currentUser) {
-        return authFailure?.();
-      }
-
+    async ({ body, currentUser, status }) => {
       const now = new Date();
       const todo = await createTodo({
         id: crypto.randomUUID(),
@@ -129,77 +79,56 @@ export const todoRoutes = new Elysia({ prefix: "/todos" })
       body: createTodoBody
     }
   )
-  .get("/:id", async ({ params, currentUser, authFailure, status }) => {
-      if (!currentUser) {
-        return authFailure?.();
-      }
-
-      if (!params.id || !uuidPattern.test(params.id)) {
-        return status(400, { error: "Invalid todo ID" });
-      }
-
-    const cacheKey = todoCacheKey(params.id);
-    const cached = await getJson<ReturnType<typeof toTodoResponse>>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const todo = await findTodoById(params.id, currentUser.id);
-    if (!todo) {
-      return status(404, { error: "Todo not found" });
-    }
-
-    const response = toTodoResponse(todo, config.baseUrl);
-    await setJson(cacheKey, response);
-    return response;
-  })
-  .patch(
-    "/:id",
-    async ({ params, body, currentUser, authFailure, status }) => {
-      if (!currentUser) {
-        return authFailure?.();
-      }
-
-      if (!uuidPattern.test(params.id)) {
-        return status(400, { error: "Invalid todo ID" });
-      }
-
-      const todo = await updateTodoById(params.id, currentUser.id, body);
-      if (!todo) {
-        return status(404, { error: "Todo not found" });
-      }
-
-      await deleteKeys(todosCacheKey(currentUser.id), todoCacheKey(params.id));
-
-      return toTodoResponse(todo, config.baseUrl);
-    },
+  .guard(
     {
-      body: updateTodoBody
-    }
+      params: todoIdParams
+    },
+    (app) =>
+      app
+        .get("/:id", async ({ params, currentUser, status }) => {
+          const cacheKey = todoCacheKey(params.id);
+          const cached = await getJson<ReturnType<typeof toTodoResponse>>(cacheKey);
+          if (cached) {
+            return cached;
+          }
+
+          const todo = await findTodoById(params.id, currentUser.id);
+          if (!todo) {
+            return status(404, { error: "Todo not found" });
+          }
+
+          const response = toTodoResponse(todo, config.baseUrl);
+          await setJson(cacheKey, response);
+          return response;
+        })
+        .patch(
+          "/:id",
+          async ({ params, body, currentUser, status }) => {
+            const todo = await updateTodoById(params.id, currentUser.id, body);
+            if (!todo) {
+              return status(404, { error: "Todo not found" });
+            }
+
+            await deleteKeys(todosCacheKey(currentUser.id), todoCacheKey(params.id));
+
+            return toTodoResponse(todo, config.baseUrl);
+          },
+          {
+            body: updateTodoBody
+          }
+        )
+        .delete("/:id", async ({ params, currentUser, status }) => {
+          const deleted = await deleteTodoById(params.id, currentUser.id);
+          if (!deleted) {
+            return status(404, { error: "Todo not found" });
+          }
+
+          await deleteKeys(todosCacheKey(currentUser.id), todoCacheKey(params.id));
+
+          return new Response(null, { status: 204 });
+        })
   )
-  .delete("/:id", async ({ params, currentUser, authFailure, status }) => {
-      if (!currentUser) {
-        return authFailure?.();
-      }
-
-      if (!uuidPattern.test(params.id)) {
-        return status(400, { error: "Invalid todo ID" });
-      }
-
-    const deleted = await deleteTodoById(params.id, currentUser.id);
-    if (!deleted) {
-      return status(404, { error: "Todo not found" });
-    }
-
-    await deleteKeys(todosCacheKey(currentUser.id), todoCacheKey(params.id));
-
-    return new Response(null, { status: 204 });
-  })
-  .delete("/", async ({ currentUser, authFailure }) => {
-    if (!currentUser) {
-      return authFailure?.();
-    }
-
+  .delete("/", async ({ currentUser }) => {
     await deleteAllTodosByUserId(currentUser.id);
     await deleteKeys(todosCacheKey(currentUser.id));
 
