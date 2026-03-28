@@ -4,6 +4,7 @@ import { Elysia } from "elysia";
 import { jwtPlugin } from "./lib/jwt";
 import { authRoutes } from "./routes/auth";
 import { healthRoutes } from "./routes/health";
+import { todoRoutes } from "./routes/todos";
 
 export function createApp() {
   return new Elysia()
@@ -15,7 +16,16 @@ export function createApp() {
         maxAge: 86400
       })
     )
+    .onError(({ code, error, set }) => {
+      if (code === "VALIDATION") {
+        set.status = 400;
+        return {
+          error: error.message
+        };
+      }
+    })
     .use(jwtPlugin)
     .use(authRoutes)
+    .use(todoRoutes)
     .use(healthRoutes);
 }
