@@ -1,6 +1,8 @@
 import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
 
+import { jwtPlugin } from "./lib/jwt";
+import { authRoutes } from "./routes/auth";
 import { healthRoutes } from "./routes/health";
 
 export function createApp() {
@@ -13,5 +15,7 @@ export function createApp() {
         maxAge: 86400
       })
     )
+    .use(jwtPlugin)
+    .use(authRoutes)
     .use(healthRoutes);
 }
