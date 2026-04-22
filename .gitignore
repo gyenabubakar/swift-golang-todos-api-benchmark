@@ -39,8 +39,6 @@ fly.toml
 postgres_data/
 redis_data/
 
-benchmark/results-*
-benchmark/stats.csv
 _bench-results/
 bun-api/.env
 go-api/.env

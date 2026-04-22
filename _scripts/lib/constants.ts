@@ -8,7 +8,7 @@ export const ROOT_DIR = resolve(import.meta.dir, "../..");
 export const BENCH_RESULTS_DIR = resolve(ROOT_DIR, "_bench-results");
 export const ROOT_ENV_PATH = resolve(ROOT_DIR, ".env");
 export const INIT_SQL_PATH = resolve(ROOT_DIR, "init.sql");
-export const BENCHMARK_SCRIPT_PATH = resolve(ROOT_DIR, "benchmark/benchmark.js");
+export const BENCHMARK_SCRIPT_PATH = resolve(ROOT_DIR, "_scripts/benchmark.js");
 
 export const BACKEND_SERVICE: Record<Backend, string> = {
   bun: "bun-api",
